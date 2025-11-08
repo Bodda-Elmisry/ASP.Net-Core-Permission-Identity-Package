@@ -7,18 +7,29 @@ namespace ASPNetCorePermissionIdentity.Persistence
 {
     public class PermissionIdentityDbContext<TUser, TRole, TKey>
         : IdentityDbContext<
-        TUser, TRole, TKey,
-        IdentityUserClaim<TKey>,
-        IdentityUserRole<TKey>,
-        IdentityUserLogin<TKey>,
-        IdentityRoleClaim<TKey>,
-        IdentityUserToken<TKey>>
-    where TUser : IdentityUser<TKey>
-    where TRole : IdentityRole<TKey>
-    where TKey : IEquatable<TKey>
-
+            TUser, TRole, TKey,
+            IdentityUserClaim<TKey>,
+            IdentityUserRole<TKey>,
+            IdentityUserLogin<TKey>,
+            IdentityRoleClaim<TKey>,
+            IdentityUserToken<TKey>>
+        where TUser : IdentityUser<TKey>
+        where TRole : IdentityRole<TKey>
+        where TKey : IEquatable<TKey>
     {
-        public PermissionIdentityDbContext(DbContextOptions options) : base(options) { }
+        // اسم الـ schema الافتراضي
+        private readonly string _schema;
+
+        // ctor افتراضي: يستخدم "identity" كـ schema
+        public PermissionIdentityDbContext(DbContextOptions options)
+            : this(options, "identity") { }
+
+        // ctor يسمح بتمرير schema من التطبيق المستهلك لو حبيت
+        public PermissionIdentityDbContext(DbContextOptions options, string schema)
+            : base(options)
+        {
+            _schema = string.IsNullOrWhiteSpace(schema) ? "identity" : schema.Trim();
+        }
 
         public virtual DbSet<PermissionGroup<TKey>> PermissionGroups => Set<PermissionGroup<TKey>>();
         public virtual DbSet<Permission<TKey>> Permissions => Set<Permission<TKey>>();
@@ -29,12 +40,23 @@ namespace ASPNetCorePermissionIdentity.Persistence
         {
             base.OnModelCreating(b);
 
-            var schema = "identity"; 
+            // 👈 هنا بنحدد الـ Default Schema لكل الجداول
+            b.HasDefaultSchema(_schema);
+
+            // لو عايز تسمّي جداول Identity الأساسية بنفس أسماء AspNet* تحت الـ schema الافتراضي:
+            // (اختياري) 
+            b.Entity<TUser>().ToTable("AspNetUsers");
+            b.Entity<TRole>().ToTable("AspNetRoles");
+            b.Entity<IdentityUserRole<TKey>>().ToTable("AspNetUserRoles");
+            b.Entity<IdentityUserClaim<TKey>>().ToTable("AspNetUserClaims");
+            b.Entity<IdentityUserLogin<TKey>>().ToTable("AspNetUserLogins");
+            b.Entity<IdentityRoleClaim<TKey>>().ToTable("AspNetRoleClaims");
+            b.Entity<IdentityUserToken<TKey>>().ToTable("AspNetUserTokens");
 
             // PermissionGroup
             b.Entity<PermissionGroup<TKey>>(e =>
             {
-                e.ToTable("PermissionGroups", schema);
+                e.ToTable("AspNetPermissionGroups"); // الschema الافتراضي بيتطبق تلقائياً
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Name).HasMaxLength(128).IsRequired();
                 e.Property(x => x.DisplayName).HasMaxLength(256);
@@ -45,7 +67,7 @@ namespace ASPNetCorePermissionIdentity.Persistence
             // Permission
             b.Entity<Permission<TKey>>(e =>
             {
-                e.ToTable("Permissions", schema);
+                e.ToTable("AspNetPermissions");
                 e.HasKey(x => x.Id);
                 e.Property(x => x.Name).HasMaxLength(256).IsRequired();
                 e.Property(x => x.DisplayName).HasMaxLength(256);
@@ -62,7 +84,7 @@ namespace ASPNetCorePermissionIdentity.Persistence
             // RolePermission (Role ↔ Permission)
             b.Entity<RolePermission<TKey>>(e =>
             {
-                e.ToTable("RolePermissions", schema);
+                e.ToTable("AspNetRolePermissions");
                 e.HasKey(x => new { x.RoleId, x.PermissionId });
                 e.HasIndex(x => x.PermissionId);
 
@@ -80,7 +102,7 @@ namespace ASPNetCorePermissionIdentity.Persistence
             // UserPermission (User ↔ Permission)
             b.Entity<UserPermission<TKey>>(e =>
             {
-                e.ToTable("UserPermissions", schema);
+                e.ToTable("AspNetUserPermissions");
                 e.HasKey(x => new { x.UserId, x.PermissionId });
                 e.HasIndex(x => x.PermissionId);
 
@@ -95,13 +117,10 @@ namespace ASPNetCorePermissionIdentity.Persistence
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            
-            ConfigureModel(b, schema);
+            // Hook للتطبيق المشتق (لو عايز تزود أي تخصيصات) — هنمرر له الschema الفعلي
+            ConfigureModel(b, _schema);
         }
 
-        
         protected virtual void ConfigureModel(ModelBuilder modelBuilder, string schema) { }
-
-
     }
 }

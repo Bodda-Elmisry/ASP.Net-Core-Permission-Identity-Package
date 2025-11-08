@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace ASPNetCorePermissionIdentity.Entities
 {
-    public class PermissionGroup <TKey> : BaseEntity<TKey>
+    public class PermissionGroup <TKey> : BaseEntity<TKey> where TKey : IEquatable<TKey>
     {
         public string Name { get; set; } = default!;        
         public string? DisplayName { get; set; }            
