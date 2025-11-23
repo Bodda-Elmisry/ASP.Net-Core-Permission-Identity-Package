@@ -85,7 +85,7 @@ namespace ASPNetCorePermissionIdentity.Managers
         public async Task<IdentityResult> AddToRoleAsync(TKey permissionId, TKey roleId, CancellationToken ct = default)
         {
             var roleExists = await _db.Roles.AsNoTracking().AnyAsync(r => r.Id!.Equals(roleId), ct);
-            if (!roleExists) return Error(_errors.RoleNotFound(Convert.ToString(roleId) ?? string.Empty));
+            if (!roleExists) return Error(new IdentityError { Code = "RoleNotFound", Description = "Role not found." });
 
             var permissionExists = await _db.Permissions.AsNoTracking().AnyAsync(p => p.Id!.Equals(permissionId), ct);
             if (!permissionExists) return Error(_errors.DefaultError());
